@@ -33,7 +33,7 @@ from ...api import IlsRecordError, IlsRecordsIndexer, IlsRecordsSearch
 from ...documents.api import Document, DocumentsSearch
 from ...fetchers import id_fetcher
 from ...minters import id_minter
-from ...organisations.api import current_organisation
+from ...organisations.api import Organisation, current_organisation
 from ...providers import Provider
 
 # provider
@@ -108,6 +108,10 @@ class Item(ItemCirculation, ItemIssue):
         }
     }
 
+    def availability_text(self):
+        """Availability text."""
+        return self.status
+
     def delete_from_index(self):
         """Delete record from index."""
         try:
@@ -134,6 +138,27 @@ class Item(ItemCirculation, ItemIssue):
                 regular_issue_cannot_be_deleted=True
             )
         return cannot_delete
+
+    def in_collection(self, **kwargs):
+        """Get published collection pids for current item."""
+        from ...collections.api import CollectionsSearch
+        output = []
+        result = list(
+            CollectionsSearch()
+            .filter('term', items__pid=self.get('pid'))
+            .filter('term', published=True)
+            .sort({'title': {"order": "asc"}})
+            .scan()
+        )
+        for record in result:
+            organisation = Organisation.get_record_by_pid(
+                record['organisation']['pid'])
+            output.append({
+                'pid': record['pid'],
+                'title': record['title'],
+                'viewcode': organisation.get('code')
+            })
+        return output
 
     def dumps(self, **kwargs):
         """Return pure Python dictionary with record metadata."""
