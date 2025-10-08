@@ -262,6 +262,7 @@
     },
     "items": {
       "title": "Items",
+      "description": "Items must belong to one of the libraries defined above.",
       "type": "array",
       "items": {
         "title": "Item",
@@ -291,6 +292,7 @@
       "widget": {
         "formlyConfig": {
           "props": {
+            "fieldMap": "items",
             "itemCssClass": "ui:col-span-12"
           }
         }

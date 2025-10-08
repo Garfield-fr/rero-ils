@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2020 RERO
+# Copyright (C) 2020-2025 RERO
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -60,7 +60,7 @@ def test_collections_permissions(
         CollectionPermissionPolicy,
         {
             "search": True,
-            "read": True,
+            "read": False,
             "create": False,
             "update": False,
             "delete": False,
@@ -84,7 +84,7 @@ def test_collections_permissions(
         CollectionPermissionPolicy,
         {
             "search": True,
-            "read": True,
+            "read": False,
             "create": False,
             "update": False,
             "delete": False,
@@ -110,7 +110,7 @@ def test_collections_permissions(
         CollectionPermissionPolicy,
         {
             "search": True,
-            "read": True,
+            "read": False,
             "create": False,
             "update": False,
             "delete": False,
@@ -151,7 +151,7 @@ def test_collections_permissions(
         coll_martigny_1,
     )
 
-    # reset the librarian
+    # # reset the librarian
     librarian_martigny["roles"] = original_roles
     librarian_martigny.update(librarian_martigny, dbcommit=True, reindex=True)
     PatronsSearch.flush_and_refresh()
@@ -161,14 +161,20 @@ def test_collections_permissions(
     login_user(system_librarian_martigny.user)
     check_permission(
         CollectionPermissionPolicy,
-        {"search": True, "read": True, "create": True, "update": True, "delete": True},
+        {
+            "search": True,
+            "read": True,
+            "create": True,
+            "update": True,
+            "delete": True,
+        },
         coll_saxon_1,
     )
     check_permission(
         CollectionPermissionPolicy,
         {
             "search": True,
-            "read": True,
+            "read": False,
             "create": False,
             "update": False,
             "delete": False,

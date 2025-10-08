@@ -26,3 +26,8 @@ def test_get_items(item_lib_martigny, item2_lib_martigny, coll_martigny_1):
     item_lib_martigny.delete(dbcommit=True, delindex=True)
     # after deleting on item collection should have only one item
     assert coll_martigny_1.get_items() == [item2_lib_martigny]
+
+
+def test_get_libraries(coll_martigny_1, lib_martigny):
+    """Test get library pids for a collection."""
+    assert coll_martigny_1.library_pids[0] == lib_martigny["pid"]

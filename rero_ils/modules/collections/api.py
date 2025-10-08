@@ -99,6 +99,11 @@ class Collection(IlsRecord):
                 items.append(item)
         return items
 
+    @property
+    def library_pids(self):
+        """Shortcut for collection library PIDs."""
+        return [extracted_data_from_ref(ref) for ref in self.get("libraries", [])]
+
 
 class CollectionsIndexer(IlsRecordsIndexer):
     """Indexing collections in Elasticsearch."""

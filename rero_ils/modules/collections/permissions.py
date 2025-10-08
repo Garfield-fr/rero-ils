@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2019-2022 RERO
+# Copyright (C) 2019-2025 RERO
 # Copyright (C) 2019-2022 UCLouvain
 #
 # This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@ from invenio_access import action_factory
 
 from rero_ils.modules.permissions import (
     AllowedByAction,
+    AllowedByActionRestrictByManageableLibrary,
     AllowedByActionRestrictByOrganisation,
     RecordPermissionPolicy,
 )
@@ -35,11 +36,16 @@ delete_action = action_factory("coll-delete")
 access_action = action_factory("coll-access")
 
 
+def get_libraries(collection):
+    """Get a callback function to return library pids."""
+    return getattr(collection, "library_pids", None)
+
+
 class CollectionPermissionPolicy(RecordPermissionPolicy):
     """Collection Permission Policy used by the CRUD operations."""
 
     can_search = [AllowedByAction(search_action)]
-    can_read = [AllowedByAction(read_action)]
-    can_create = [AllowedByActionRestrictByOrganisation(create_action)]
-    can_update = [AllowedByActionRestrictByOrganisation(update_action)]
-    can_delete = [AllowedByActionRestrictByOrganisation(delete_action)]
+    can_read = [AllowedByActionRestrictByOrganisation(read_action)]
+    can_create = [AllowedByActionRestrictByManageableLibrary(create_action, callback=get_libraries)]
+    can_update = [AllowedByActionRestrictByManageableLibrary(update_action, callback=get_libraries)]
+    can_delete = [AllowedByActionRestrictByManageableLibrary(delete_action, callback=get_libraries)]
