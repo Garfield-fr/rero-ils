@@ -35,9 +35,7 @@ from invenio_access import (
 )
 from invenio_accounts.models import Role
 from invenio_db import db
-from invenio_records_permissions import (
-    RecordPermissionPolicy as _RecordPermissionPolicy,
-)
+from invenio_records_permissions import RecordPermissionPolicy as _RecordPermissionPolicy
 from invenio_records_permissions.generators import Disable, Generator
 
 from rero_ils.modules.patrons.api import current_librarian, current_patrons
@@ -380,11 +378,14 @@ class AllowedByActionRestrictByManageableLibrary(AllowedByAction):
         :param kwargs: extra arguments.
         :returns: a list of Needs to validate access.
         """
-        if record and (library_pid := self.callback(record)):
+        data = self.callback(record)
+        if record and data and (library_pids := data if isinstance(data, list) else [data]):
             # Check if the record library match an ``LibraryNeed``
-            required_need = LibraryNeed(library_pid)
-            if required_need not in g.identity.provides:
-                return []
+            for library_pid in library_pids:
+                required_need = LibraryNeed(library_pid)
+                if required_need in g.identity.provides:
+                    return super().needs(record, **kwargs)
+            return []
         return super().needs(record, **kwargs)
 
 

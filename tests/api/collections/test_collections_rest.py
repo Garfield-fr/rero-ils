@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2020 RERO
+# Copyright (C) 2020-2025 RERO
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -20,6 +20,7 @@
 from unittest import mock
 
 from flask import url_for
+from invenio_accounts.testutils import login_user_via_session
 
 from rero_ils.modules.collections.api import CollectionsSearch
 from tests.utils import VerifyRecordPermissionPatch, get_json
@@ -82,3 +83,28 @@ def test_collection_enrich_data(
     query = CollectionsSearch().filter("term", pid=coll_martigny_1.pid).source().scan()
     coll_martigny_1_es_data = next(query)
     assert coll_martigny_1_es_data.organisation.pid == "org1"
+
+
+def test_collection_search(client, coll_sion_1, coll_martigny_1, librarian_martigny, librarian_sion, rero_json_header):
+    """Test retrieve collection by a librarian.
+
+    A librarian should only receive collections from their organization.
+    """
+    # Not logged in
+    list_url = url_for("invenio_records_rest.coll_list", type="course")
+    res = client.get(list_url, headers=rero_json_header)
+    data = get_json(res)
+    assert data["hits"]["total"]["value"] == 2
+
+    # logged in as a librarian
+    login_user_via_session(client, librarian_martigny.user)
+    res = client.get(list_url, headers=rero_json_header)
+    data = get_json(res)
+    assert data["hits"]["total"]["value"] == 1
+    assert data["hits"]["hits"][0]["metadata"]["pid"] == coll_martigny_1.pid
+
+    login_user_via_session(client, librarian_sion.user)
+    res = client.get(list_url, headers=rero_json_header)
+    data = get_json(res)
+    assert data["hits"]["total"]["value"] == 1
+    assert data["hits"]["hits"][0]["metadata"]["pid"] == coll_sion_1.pid

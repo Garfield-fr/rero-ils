@@ -43,7 +43,9 @@ def get_library_pid(record):
     @returns: the library pid value.
     @rtype: string.
     """
-    return extracted_data_from_ref(record.get("metadata", {}).get("library"))
+    if record:
+        return extracted_data_from_ref(record.get("metadata", {}).get("library"))
+    return None
 
 
 class FilePermissionPolicy(RecordPermissionPolicy):

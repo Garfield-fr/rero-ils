@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2019-2024 RERO
+# Copyright (C) 2019-2025 RERO
 # Copyright (C) 2020 UCLOUVAIN
 #
 # This program is free software: you can redistribute it and/or modify
@@ -269,7 +269,12 @@ def organisation_search_factory(self, search, query_parser=None):
 
 
 def view_search_collection_factory(self, search, query_parser=None):
-    """Search factory with view code parameter."""
+    """Collection Search factory.
+
+    Restricts results to organisation level for librarian and sys_lib.
+    """
+    if current_librarian:
+        search = search.filter("term", organisation__pid=current_librarian.organisation_pid)
     view = request.args.get("view", current_app.config.get("RERO_ILS_SEARCH_GLOBAL_VIEW_CODE"))
     search, urlkwargs = search_factory(self, search)
     if view != current_app.config.get("RERO_ILS_SEARCH_GLOBAL_VIEW_CODE"):
