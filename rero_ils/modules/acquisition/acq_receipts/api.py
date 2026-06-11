@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2019-2022 RERO
-# Copyright (C) 2019-2022 UCLouvain
+# Copyright (C) 2019-2026 RERO
+# Copyright (C) 2019-2026 UCLouvain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -29,7 +29,7 @@ from rero_ils.modules.acquisition.acq_receipt_lines.api import (
 )
 from rero_ils.modules.acquisition.api import AcquisitionIlsRecord
 from rero_ils.modules.api import IlsRecordsIndexer, IlsRecordsSearch
-from rero_ils.modules.extensions import DecimalAmountExtension
+from rero_ils.modules.extensions import NormalizeAmountExtension
 from rero_ils.modules.fetchers import id_fetcher
 from rero_ils.modules.minters import id_minter
 from rero_ils.modules.providers import Provider
@@ -82,9 +82,9 @@ class AcqReceipt(AcquisitionIlsRecord):
     model_cls = AcqReceiptMetadata
 
     _extensions = [
+        NormalizeAmountExtension("amount_adjustments.amount"),
         AcqReceiptExtension(),
         AcquisitionReceiptCompleteDataExtension(),
-        DecimalAmountExtension(callback=lambda rec: [adj["amount"] for adj in rec.get("amount_adjustments", [])]),
     ]
 
     @classmethod
@@ -268,17 +268,13 @@ class AcqReceipt(AcquisitionIlsRecord):
         """
         # Compute the total of all related receipt line
         search = AcqReceiptLinesSearch().filter("term", acq_receipt__pid=self.pid)
-        search.aggs.metric(
-            "receipt_total_amount",
-            "sum",
-            field="total_amount",
-            script={"source": "Math.round(_value*100)/100.00"},
-        )
+        search.aggs.metric("receipt_total_amount", "sum", field="total_amount")
         results = search.execute()
-        total = results.aggregations.receipt_total_amount.value
-        # Add the sum of all adjustments
-        total += sum(fee.get("amount") for fee in self.amount_adjustments)
-        return round(total, 2)
+        return round(
+            results.aggregations.receipt_total_amount.value
+            + sum(fee.get("amount", 0) for fee in self.amount_adjustments),
+            2,
+        )
 
     @property
     def total_item_quantity(self):

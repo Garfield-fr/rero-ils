@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2019-2022 RERO
-# Copyright (C) 2019-2022 UCLouvain
+# Copyright (C) 2019-2026 RERO
+# Copyright (C) 2019-2026 UCLouvain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -29,6 +29,7 @@ from rero_ils.modules.acquisition.acq_receipt_lines.api import AcqReceiptLinesSe
 from rero_ils.modules.acquisition.acq_receipts.api import AcqReceiptsSearch
 from rero_ils.modules.acquisition.api import AcquisitionIlsRecord
 from rero_ils.modules.api import IlsRecordsIndexer, IlsRecordsSearch
+from rero_ils.modules.extensions import NormalizeAmountExtension
 from rero_ils.modules.fetchers import id_fetcher
 from rero_ils.modules.minters import id_minter
 from rero_ils.modules.providers import Provider
@@ -73,7 +74,10 @@ class AcqAccount(AcquisitionIlsRecord):
         "not_required": {"parent": "acq_account", "org": "organisation"},
     }
 
-    _extensions = [ParentAccountDistributionCheck()]
+    _extensions = [
+        NormalizeAmountExtension("allocated_amount"),
+        ParentAccountDistributionCheck(),
+    ]
 
     @classmethod
     def create(cls, data, id_=None, delete_pid=False, dbcommit=True, reindex=True, **kwargs):
@@ -183,15 +187,15 @@ class AcqAccount(AcquisitionIlsRecord):
         query = AcqOrderLinesSearch().filter("term", acq_account__pid=self.pid).filter("terms", status=status_list)
         query.aggs.metric("total_amount", "sum", field="total_unreceived_amount")
         results = query.execute()
-        self_amount = results.aggregations.total_amount.value
+        self_amount = round(results.aggregations.total_amount.value, 2)
 
         # Encumbrance of children accounts
         query = AcqAccountsSearch().filter("term", parent__pid=self.pid)
         query.aggs.metric("total", "sum", field="encumbrance_amount.total")
         results = query.execute()
-        children_amount = results.aggregations.total.value
+        children_amount = round(results.aggregations.total.value, 2)
 
-        return round(self_amount, 2), round(children_amount, 2)
+        return self_amount, children_amount
 
     @property
     def expenditure_amount(self):
@@ -206,7 +210,7 @@ class AcqAccount(AcquisitionIlsRecord):
         search = AcqReceiptLinesSearch().filter("term", acq_account__pid=self.pid)
         search.aggs.metric("sum_receipt_lines", "sum", field="total_amount")
         results = search.execute()
-        lines_expenditure = results.aggregations.sum_receipt_lines.value
+        lines_expenditure = round(results.aggregations.sum_receipt_lines.value, 2)
 
         search = AcqReceiptsSearch().filter(
             "nested",
@@ -214,17 +218,17 @@ class AcqAccount(AcquisitionIlsRecord):
             query=Q("bool", must=[Q("match", amount_adjustments__acq_account__pid=self.pid)]),
         )
         receipt_expenditure = sum(
-            sum([adjustment.amount for adjustment in hit.amount_adjustments if adjustment.acq_account.pid == self.pid])
+            sum(adjustment.amount for adjustment in hit.amount_adjustments if adjustment.acq_account.pid == self.pid)
             for hit in search.scan()
         )
-        self_amount = lines_expenditure + receipt_expenditure
+        self_amount = round(lines_expenditure + receipt_expenditure, 2)
 
         # Expenditure of children accounts
         query = AcqAccountsSearch().filter("term", parent__pid=self.pid)
         query.aggs.metric("total", "sum", field="expenditure_amount.total")
         results = query.execute()
         children_amount = round(results.aggregations.total.value, 2)
-        return round(self_amount, 2), round(children_amount, 2)
+        return self_amount, children_amount
 
     @property
     def remaining_balance(self):
@@ -242,10 +246,12 @@ class AcqAccount(AcquisitionIlsRecord):
         encumbrance = self.encumbrance_amount
         expenditure = self.expenditure_amount
 
-        self_balance = initial_amount - self.distribution - encumbrance[0] - expenditure[0]
-        total_balance = initial_amount - sum(list(self.encumbrance_amount)) - sum(list(self.expenditure_amount))
+        self_balance = round(initial_amount - self.distribution - encumbrance[0] - expenditure[0], 2)
+        total_balance = round(
+            initial_amount - sum(list(self.encumbrance_amount)) - sum(list(self.expenditure_amount)), 2
+        )
 
-        return round(self_balance, 2), round(total_balance, 2)
+        return self_balance, total_balance
 
     @property
     def distribution(self):
@@ -266,14 +272,14 @@ class AcqAccount(AcquisitionIlsRecord):
         """Compute the exceedance allowed for this account by type.
 
         :param exceed_type: the exceedance type to compute. Check `AcqAccountExceedanceType` class for values.
-        :return the exceedance amount allowed rounded to the nearest centime.
+        :return the exceedance amount allowed in euros, rounded to two decimals.
         """
         rate = 0
         if exceed_type == AcqAccountExceedanceType.ENCUMBRANCE:
             rate = self.get("encumbrance_exceedance", 0)
         elif exceed_type == AcqAccountExceedanceType.EXPENDITURE:
             rate = self.get("expenditure_exceedance", 0)
-        return round(self["allocated_amount"] * rate) / 100
+        return round(self["allocated_amount"] * rate / 100, 2)
 
     def transfer_fund(self, target_account, amount):
         """Transfer funds between two accounts.

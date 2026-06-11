@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2019-2022 RERO
-# Copyright (C) 2019-2022 UCLouvain
+# Copyright (C) 2019-2026 RERO
+# Copyright (C) 2019-2026 UCLouvain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -19,6 +19,7 @@
 """Shared extensions about RERO-ILS resources."""
 
 import re
+from decimal import ROUND_HALF_UP, Decimal
 
 from elasticsearch_dsl import Q
 from invenio_records.extensions import RecordExtension
@@ -161,3 +162,59 @@ class DecimalAmountExtension(RecordExtension):
 
     pre_commit = _check_amount
     pre_create = _check_amount
+
+
+class NormalizeAmountExtension(RecordExtension):
+    """Normalize monetary amount fields to two decimal places before DB storage.
+
+    On write (pre_create / pre_commit): any numeric value found at the given
+    field paths is converted to a float rounded to two decimal places using
+    ``Decimal`` arithmetic to avoid floating-point drift.
+
+    Field paths support arbitrary nesting using dot notation. Lists are
+    iterated automatically, dicts are traversed.  Examples::
+
+        NormalizeAmountExtension("amount")
+        NormalizeAmountExtension("amount_adjustments.amount")
+        NormalizeAmountExtension("overdue_fees.intervals.fee_amount")
+    """
+
+    def __init__(self, *field_paths):
+        """Initialise with one or more dot-notation field paths."""
+        self.field_paths = field_paths
+
+    @staticmethod
+    def _normalize(value):
+        normalized = float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        if abs(value - normalized) > 1e-9:
+            raise ValidationError(f"`{value}` must be multiple of 0.01")
+        return normalized
+
+    @staticmethod
+    def _apply_path(data, path, fn):
+        """Recursively apply *fn* to the value(s) at *path* inside *data*."""
+        parts = path.split(".", 1)
+        key = parts[0]
+        value = data.get(key)
+        if value is None:
+            return
+        if len(parts) == 1:
+            data[key] = fn(value)
+        else:
+            rest = parts[1]
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        NormalizeAmountExtension._apply_path(item, rest, fn)
+            elif isinstance(value, dict):
+                NormalizeAmountExtension._apply_path(value, rest, fn)
+
+    def _apply(self, data, fn):
+        for path in self.field_paths:
+            self._apply_path(data, path, fn)
+
+    def pre_create(self, record):
+        """Normalize incoming amount to two decimal places."""
+        self._apply(record, self._normalize)
+
+    pre_commit = pre_create

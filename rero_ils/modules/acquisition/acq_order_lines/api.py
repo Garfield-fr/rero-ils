@@ -2,7 +2,7 @@
 #
 # RERO ILS
 # Copyright (C) 2019-2026 RERO
-# Copyright (C) 2019-2022 UCLouvain
+# Copyright (C) 2019-2026 UCLouvain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -25,6 +25,7 @@ from flask_babel import gettext as _
 
 from rero_ils.modules.acquisition.api import AcquisitionIlsRecord
 from rero_ils.modules.api import IlsRecordsIndexer, IlsRecordsSearch
+from rero_ils.modules.extensions import NormalizeAmountExtension
 from rero_ils.modules.fetchers import id_fetcher
 from rero_ils.modules.minters import id_minter
 from rero_ils.modules.providers import Provider
@@ -71,7 +72,10 @@ class AcqOrderLine(AcquisitionIlsRecord):
         "not_required": {"org": "organisation"},
     }
 
-    _extensions = [AcqOrderLineValidationExtension()]
+    _extensions = [
+        NormalizeAmountExtension("amount", "total_amount", "discount_amount"),
+        AcqOrderLineValidationExtension(),
+    ]
 
     # API METHODS =============================================================
     #   Overriding the `IlsRecord` default behavior for create and update

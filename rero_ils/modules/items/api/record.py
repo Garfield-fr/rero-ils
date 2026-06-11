@@ -24,6 +24,7 @@ from elasticsearch_dsl.query import Q
 from flask_babel import gettext as _
 
 from rero_ils.modules.api import IlsRecord
+from rero_ils.modules.extensions import NormalizeAmountExtension
 from rero_ils.modules.holdings.models import HoldingTypes
 from rero_ils.modules.item_types.api import ItemType
 from rero_ils.modules.local_fields.extensions import DeleteRelatedLocalFieldExtension
@@ -49,6 +50,7 @@ class ItemRecord(IlsRecord):
     """Item record class."""
 
     _extensions = [
+        NormalizeAmountExtension("price"),
         IssueSortDateExtension(),
         IssueStatusExtension(),
         OrgLibRecordExtension(),

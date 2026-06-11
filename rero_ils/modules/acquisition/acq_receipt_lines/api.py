@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2019-2022 RERO
-# Copyright (C) 2019-2022 UCLouvain
+# Copyright (C) 2019-2026 RERO
+# Copyright (C) 2019-2026 UCLouvain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -26,6 +26,7 @@ from werkzeug.utils import cached_property
 
 from rero_ils.modules.acquisition.api import AcquisitionIlsRecord
 from rero_ils.modules.api import IlsRecordsIndexer, IlsRecordsSearch
+from rero_ils.modules.extensions import NormalizeAmountExtension
 from rero_ils.modules.fetchers import id_fetcher
 from rero_ils.modules.minters import id_minter
 from rero_ils.modules.providers import Provider
@@ -72,6 +73,7 @@ class AcqReceiptLine(AcquisitionIlsRecord):
     model_cls = AcqReceiptLineMetadata
 
     _extensions = [
+        NormalizeAmountExtension("amount"),
         AcquisitionReceiptLineCompleteDataExtension(),
         AcqReceiptLineValidationExtension(),
     ]
@@ -175,10 +177,9 @@ class AcqReceiptLine(AcquisitionIlsRecord):
 
     @property
     def total_amount(self):
-        """Shortcut for related acquisition total_amount."""
+        """Shortcut for related acquisition total_amount in euros."""
         vat_factor = (100 + self.get("vat_rate", 0)) / 100
-        total = self.amount * self.quantity * vat_factor
-        return round(total, 2)
+        return round(self.amount * self.quantity * vat_factor, 2)
 
     @property
     def quantity(self):

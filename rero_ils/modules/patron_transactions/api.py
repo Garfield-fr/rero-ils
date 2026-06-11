@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # RERO ILS
-# Copyright (C) 2019-2022 RERO
-# Copyright (C) 2019-2022 UCLouvain
+# Copyright (C) 2019-2026 RERO
+# Copyright (C) 2019-2026 UCLouvain
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -23,6 +23,7 @@ from functools import partial
 from werkzeug.utils import cached_property
 
 from rero_ils.modules.api import IlsRecord, IlsRecordsIndexer, IlsRecordsSearch
+from rero_ils.modules.extensions import NormalizeAmountExtension
 from rero_ils.modules.fetchers import id_fetcher
 from rero_ils.modules.minters import id_minter
 from rero_ils.modules.organisations.api import Organisation
@@ -65,7 +66,10 @@ class PatronTransactionsSearch(IlsRecordsSearch):
 class PatronTransaction(IlsRecord):
     """Patron Transaction class."""
 
-    _extensions = [PatronTransactionExtension()]
+    _extensions = [
+        NormalizeAmountExtension("total_amount"),
+        PatronTransactionExtension(),
+    ]
 
     minter = patron_transaction_id_minter
     fetcher = patron_transaction_id_fetcher
